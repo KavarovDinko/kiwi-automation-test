@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  playwright-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kiwi-automation
+    volumes:
+      - ./reports:/app/reports
+    environment:
+      - PYTEST_ADDOPTS=--headed=False --browser chromium
+    command: pytest -v -m basic_search --html=reports/report.html --self-contained-html
