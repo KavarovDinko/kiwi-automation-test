@@ -61,10 +61,10 @@ class HomePage(BasePage):
     
     def select_trip_type(self, trip_type: str) -> None:
         """
-        Select trip type (one-way or round-trip)
+        Select trip type (one-way)
         
         Args:
-            trip_type: Type of trip ('one-way' or 'round-trip')
+            trip_type: Type of trip ('one-way')
         """
         logger.info(f"Selecting trip type: {trip_type}")
         
@@ -75,12 +75,12 @@ class HomePage(BasePage):
             if trip_type.lower() in ['one-way', 'oneway', 'one way']:
                 # Multiple approaches to find one-way button
                 trip_type_selectors = [
-                    # "button:has-text('One-way')",
-                    # "button:has-text('one-way')",
-                    # "//button[contains(translate(., 'ONEWAY', 'oneway'), 'one-way')]",
-                    # "[data-test='TripTypeButton-one-way']",
-                    # "label:has-text('One-way')",
-                    # "input[value='one-way']",
+                    "button:has-text('One-way')",
+                    "button:has-text('one-way')",
+                    "//button[contains(translate(., 'ONEWAY', 'oneway'), 'one-way')]",
+                    "[data-test='TripTypeButton-one-way']",
+                    "label:has-text('One-way')",
+                    "input[value='one-way']",
                     "[data-test='SearchFormModesPicker-active-return']"
                 ]
                 trip_types = [
@@ -133,11 +133,11 @@ class HomePage(BasePage):
             
             # Try different selectors for departure field
             departure_selectors = [
-                "[data-test='SearchField-input'][data-test*='origin']"
+                # "[data-test='SearchField-input'][data-test*='origin']",
                 # "[data-test='PlacePickerInputPlace']:first-child input",
                 # "input[placeholder*='From']",
                 # "input[placeholder*='Where from']",
-                # "[data-test='SearchField-input']:first-of-type"
+                "[data-test='SearchField-input']:first-of-type"
             ]
             
             for selector in departure_selectors:
@@ -186,11 +186,11 @@ class HomePage(BasePage):
             
             # Try different selectors for arrival field
             arrival_selectors = [
-                "[data-test='SearchField-input'][data-test*='destination']"
-                # "[data-test='PlacePickerInputPlace']:last-child input",
-                # "input[placeholder*='To']",
-                # "input[placeholder*='Where to']",
-                # "[data-test='SearchFieldItem-destination']:first-of-type"
+                "[data-test='SearchField-input'][data-test*='destination']",
+                "[data-test='PlacePickerInputPlace']:last-child input",
+                "input[placeholder*='To']",
+                "input[placeholder*='Where to']",
+                "[data-test='SearchFieldItem-destination']:first-of-type"
             ]
             
             for selector in arrival_selectors:
@@ -238,11 +238,11 @@ class HomePage(BasePage):
             
             # Multiple dropdown selectors
             dropdown_selectors = [
-                "[data-test='SearchPlaceField-origin']"
-                # f"[role='option']:has-text('{airport_code}')",
-                # f"li:has-text('{airport_code}')",
-                # f"div[class*='suggestion']:has-text('{airport_code}')",
-                # f"button:has-text('{airport_code}')"
+                "[data-test='SearchPlaceField-origin']",
+                f"[role='option']:has-text('{airport_code}')",
+                f"li:has-text('{airport_code}')",
+                f"div[class*='suggestion']:has-text('{airport_code}')",
+                f"button:has-text('{airport_code}')"
             ]
             
             for selector in dropdown_selectors:
@@ -284,10 +284,10 @@ class HomePage(BasePage):
             
             # Click on date picker to open calendar
             date_field_selectors = [
-                # "[data-test='SearchFieldDateInput']",
-                # "[data-test='DateInput']",
-                # "button:has-text('Departure')",
-                # "input[placeholder*='Departure']",
+                "[data-test='SearchFieldDateInput']",
+                "[data-test='DateInput']",
+                "button:has-text('Departure')",
+                "input[placeholder*='Departure']",
                 "[data-test='SearchDateInput']"
             ]
             
@@ -360,11 +360,11 @@ class HomePage(BasePage):
             self.page.wait_for_timeout(1000)
             
             checkbox_selectors = [
-                # "input[name='bookingCheckbox']",
-                # "input[type='checkbox'][name*='booking']",
-                # "input[type='checkbox']:near(:text('accommodation'))",
-                "[data-test='bookingCheckbox']"
-                # "input[type='checkbox']:near(:text('Booking.com'))"
+                "input[name='bookingCheckbox']",
+                "input[type='checkbox'][name*='booking']",
+                "input[type='checkbox']:near(:text('accommodation'))",
+                "[data-test='accommodationCheckbox']",
+                "input[type='checkbox']:near(:text('Booking.com'))"
             ]
             
             for selector in checkbox_selectors:
