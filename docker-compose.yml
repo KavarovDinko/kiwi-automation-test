@@ -5,9 +5,37 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: kiwi-automation
+    container_name: kiwi-automation-tests
+    volumes:
+      # Mount reports directory to access results from host
+      - ./reports:/app/reports
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: pytest -v --browser chromium --html=reports/report.html --self-contained-html
+    
+  # Run specific test suites
+  smoke-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kiwi-smoke-tests
     volumes:
       - ./reports:/app/reports
     environment:
-      - PYTEST_ADDOPTS=--headed=False --browser chromium
-    command: pytest -v -m basic_search --html=reports/report.html --self-contained-html
+      - PYTHONUNBUFFERED=1
+    command: pytest -v -m smoke --browser chromium --html=reports/smoke-report.html --self-contained-html
+    profiles:
+      - smoke
+  
+  t1-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kiwi-t1-test
+    volumes:
+      - ./reports:/app/reports
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: pytest -v -m "basic_search and one_way" --browser chromium --html=reports/t1-report.html --self-contained-html
+    profiles:
+      - t1

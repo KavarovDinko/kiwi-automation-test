@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+*.egg-info/
+
+# Testing
+.pytest_cache/
+.cache/
+reports/
+*.html
+
+# Git
+.git/
+.gitignore
+.github/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+README.md
+*.md
+
+# Logs
+*.log
+
+# Playwright
+playwright-report/
+test-results/

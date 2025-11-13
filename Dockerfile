@@ -1,8 +1,11 @@
-# Use official Python image
-FROM python:3.11-slim
+# Use official Python image with Playwright support
+FROM mcr.microsoft.com/playwright/python:v1.41.0-jammy
 
 # Set working directory
 WORKDIR /app
+
+# Set environment to avoid Python buffering
+ENV PYTHONUNBUFFERED=1
 
 # Install system dependencies required by Playwright
 RUN apt-get update && apt-get install -y \
