@@ -1,15 +1,13 @@
 """
-Helper script to manually discover correct selectors on Kiwi.com
-Run this to find the right selectors for your test
+Enhanced debug script to find exact date selectors
 """
 from playwright.sync_api import sync_playwright
+from datetime import datetime, timedelta
 import time
 
-def find_selectors():
-    """Interactive script to find selectors"""
-    
+def find_date_selectors():
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False, slow_mo=1000)
+        browser = p.chromium.launch(headless=False, slow_mo=500)
         page = browser.new_page()
         
         print("🚀 Opening Kiwi.com...")
@@ -18,119 +16,129 @@ def find_selectors():
         time.sleep(3)
         
         # Handle cookies
-        print("\n1️⃣  Checking for cookie popup...")
         try:
             cookie_btn = page.locator("button:has-text('Accept')").first
             if cookie_btn.is_visible(timeout=3000):
                 cookie_btn.click()
-                print("✓ Cookie accepted")
                 time.sleep(1)
         except:
-            print("ℹ️  No cookie popup")
+            pass
         
-        # Find one-way button
-        print("\n2️⃣  Looking for One-way button...")
-        input("Press Enter after you manually click 'One-way' button...")
+        print("\n" + "="*60)
+        print("STEP 1: Open Date Picker")
+        print("="*60)
         
-        # Find departure field
-        print("\n3️⃣  Looking for departure (From) field...")
-        departure_selectors = [
-            "[data-test*='origin']",
-            "input[placeholder*='From']",
-            "[data-test='SearchField-input']:first-of-type"
-        ]
-        
-        for selector in departure_selectors:
-            try:
-                element = page.locator(selector).first
-                if element.is_visible(timeout=2000):
-                    print(f"✓ Found departure field: {selector}")
-                    element.click()
-                    time.sleep(1)
-                    element.type("RTM", delay=100)
-                    print(f"✓ Typed RTM")
-                    time.sleep(2)
-                    
-                    # Try to click suggestion
-                    try:
-                        suggestion = page.locator("[data-test='PlacePickerRow']:has-text('RTM')").first
-                        if suggestion.is_visible(timeout=2000):
-                            suggestion.click()
-                            print("✓ Selected from dropdown")
-                    except:
-                        page.keyboard.press("Enter")
-                        print("✓ Pressed Enter")
-                    
-                    break
-            except Exception as e:
-                print(f"✗ {selector} failed: {e}")
-        
+        # Click date field
+        date_field = page.locator("[data-test='SearchDateInput']").first
+        print(f"✓ Found date field, clicking...")
+        date_field.click()
         time.sleep(2)
         
-        # Find arrival field
-        print("\n4️⃣  Looking for arrival (To) field...")
-        arrival_selectors = [
-            "[data-test*='destination']",
-            "input[placeholder*='To']",
-            "[data-test='SearchField-input']:last-of-type"
-        ]
+        print("\n" + "="*60)
+        print("STEP 2: Find Day Cells")
+        print("="*60)
         
-        for selector in arrival_selectors:
-            try:
-                element = page.locator(selector).first
-                if element.is_visible(timeout=2000):
-                    print(f"✓ Found arrival field: {selector}")
-                    element.click()
+        # Calculate target date (1 week from now)
+        target_date = datetime.now() + timedelta(weeks=1)
+        target_day = str(target_date.day)
+        date_string = target_date.strftime("%Y-%m-%d")
+        
+        print(f"Looking for: {target_date.strftime('%B %d, %Y')} ({date_string})")
+        print(f"Target day: {target_day}")
+        
+        # Strategy 1: data-date attribute
+        print("\n📅 Strategy 1: data-date attribute")
+        selector1 = f"div[data-date='{date_string}']"
+        try:
+            elements = page.locator(selector1).all()
+            print(f"   Found {len(elements)} elements with: {selector1}")
+            if len(elements) > 0:
+                print(f"   ✓ Can use this selector!")
+                elem = elements[0]
+                print(f"   Class: {elem.get_attribute('class')}")
+                print(f"   Text: {elem.inner_text()}")
+        except Exception as e:
+            print(f"   ✗ Failed: {e}")
+        
+        # Strategy 2: Look for all divs in calendar with data-date
+        print("\n📅 Strategy 2: All data-date elements")
+        try:
+            all_dates = page.locator("div[data-date]").all()
+            print(f"   Found {len(all_dates)} total date elements")
+            print(f"   First 5 dates:")
+            for elem in all_dates[:5]:
+                date_val = elem.get_attribute('data-date')
+                text = elem.inner_text()
+                print(f"      - data-date='{date_val}', text='{text}'")
+        except Exception as e:
+            print(f"   ✗ Failed: {e}")
+        
+        # Strategy 3: Click by text content
+        print("\n📅 Strategy 3: Text content matching")
+        try:
+            # Find all calendar day elements
+            day_elements = page.locator("[data-test*='Calendar'] div").all()
+            print(f"   Scanning {len(day_elements)} calendar elements...")
+            
+            matches = []
+            for elem in day_elements:
+                try:
+                    text = elem.inner_text().strip()
+                    if text == target_day:
+                        matches.append(elem)
+                        elem_class = elem.get_attribute('class')
+                        print(f"   Found match: text='{text}', class='{elem_class[:50]}...'")
+                except:
+                    continue
+            
+            print(f"   ✓ Found {len(matches)} elements with day '{target_day}'")
+            
+        except Exception as e:
+            print(f"   ✗ Failed: {e}")
+        
+        # Strategy 4: Use XPath
+        print("\n📅 Strategy 4: XPath")
+        try:
+            xpath = f"//div[@data-date='{date_string}']"
+            elements = page.locator(f"xpath={xpath}").all()
+            print(f"   Found {len(elements)} elements with XPath")
+            if len(elements) > 0:
+                print(f"   ✓ XPath works!")
+        except Exception as e:
+            print(f"   ✗ Failed: {e}")
+        
+        print("\n" + "="*60)
+        print("STEP 3: Test Accommodation Checkbox")
+        print("="*60)
+        
+        # Close calendar first
+        page.keyboard.press("Escape")
+        time.sleep(1)
+        
+        checkbox_selector = "[data-test='accommodationCheckbox']"
+        try:
+            checkbox = page.locator(checkbox_selector).first
+            if checkbox.is_visible():
+                is_checked = checkbox.is_checked()
+                print(f"✓ Checkbox found!")
+                print(f"   Selector: {checkbox_selector}")
+                print(f"   Is checked: {is_checked}")
+                print(f"   Type: {checkbox.get_attribute('type')}")
+                print(f"   Name: {checkbox.get_attribute('name')}")
+                
+                if is_checked:
+                    print(f"\n   Testing uncheck...")
+                    checkbox.uncheck()
                     time.sleep(1)
-                    element.type("MAD", delay=100)
-                    print(f"✓ Typed MAD")
-                    time.sleep(2)
-                    
-                    # Try to click suggestion
-                    try:
-                        suggestion = page.locator("[data-test='PlacePickerRow']:has-text('MAD')").first
-                        if suggestion.is_visible(timeout=2000):
-                            suggestion.click()
-                            print("✓ Selected from dropdown")
-                    except:
-                        page.keyboard.press("Enter")
-                        print("✓ Pressed Enter")
-                    
-                    break
-            except Exception as e:
-                print(f"✗ {selector} failed: {e}")
+                    print(f"   ✓ Unchecked! New state: {checkbox.is_checked()}")
+        except Exception as e:
+            print(f"✗ Checkbox error: {e}")
         
-        time.sleep(2)
-        
-        # Date picker
-        print("\n5️⃣  Looking for date picker...")
-        print("ℹ️  Manually inspect the date picker and tell me what you see")
-        input("Press Enter after you've looked at the date picker...")
-        
-        # Search button
-        print("\n6️⃣  Looking for search button...")
-        search_selectors = [
-            "[data-test='LandingSearchButton']",
-            "button:has-text('Search')",
-            "button[type='submit']"
-        ]
-        
-        for selector in search_selectors:
-            try:
-                element = page.locator(selector).first
-                if element.is_visible(timeout=2000):
-                    print(f"✓ Found search button: {selector}")
-                    break
-            except Exception as e:
-                print(f"✗ {selector} failed")
-        
-        print("\n✅ Script finished. Keep browser open to inspect elements...")
-        input("Press Enter to close browser...")
+        print("\n✅ Analysis complete!")
+        print("\nBrowser will stay open. Inspect elements manually if needed.")
+        input("Press Enter to close...")
         
         browser.close()
 
 if __name__ == "__main__":
-    print("="*60)
-    print("Kiwi.com Selector Discovery Tool")
-    print("="*60)
-    find_selectors()
+    find_date_selectors()

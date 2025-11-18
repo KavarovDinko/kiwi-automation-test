@@ -235,7 +235,7 @@ class HomePage(BasePage):
             
             # Click on date field to open calendar
             date_field_selectors = [
-                "[data-test='SearchDateInput']",
+                # "[data-test='SearchDateInput']",
                 "[data-test='SearchFieldDateInput']",
                 "div[data-test*='Date']",
                 "button:has-text('Departure')"
@@ -265,85 +265,186 @@ class HomePage(BasePage):
         except Exception as e:
             logger.error(f"Error setting departure date: {e}")
     
-    def _select_date_from_calendar(self, target_date: datetime) -> None:
-        """
-        Select specific date from calendar picker
+def _select_date_from_calendar(self, target_date: datetime) -> None:
+    """
+    Select specific date from calendar picker
+    
+    Args:
+        target_date: Target date to select
+    """
+    try:
+        day = str(target_date.day)
+        month_name = target_date.strftime("%B")
+        year = target_date.year
         
-        Args:
-            target_date: Target date to select
-        """
+        logger.info(f"Looking for date: {month_name} {day}, {year}")
+        
+        # Wait for calendar to appear
+        self.page.wait_for_timeout(1500)
+        
+        # Strategy: Find clickable date elements by text content
+        # The calendar has multiple nested divs, we need the clickable parent
+        logger.info(f"Searching for day '{day}' in calendar...")
+        
         try:
-            day = str(target_date.day)
-            month_name = target_date.strftime("%B")
-            year = target_date.year
+            # Find all elements containing the day text
+            # We need to find the one with cursor-pointer (clickable)
+            day_selector = f"div.cursor-pointer:has-text('{day}')"
             
-            logger.info(f"Looking for date: {month_name} {day}, {year}")
+            # Get all matching elements
+            day_elements = self.page.locator(day_selector).all()
+            logger.info(f"Found {len(day_elements)} clickable day elements")
             
-            # Wait for calendar to appear
-            self.page.wait_for_timeout(1500)
-            
-            # Strategy: Find clickable date elements by text content
-            logger.info(f"Searching for day '{day}' in calendar...")
-            
-            try:
-                # Find elements with cursor-pointer class containing the day text
-                day_selector = f"div.cursor-pointer:has-text('{day}')"
-                day_elements = self.page.locator(day_selector).all()
-                logger.info(f"Found {len(day_elements)} clickable day elements")
-                
-                # Click the first visible, non-disabled one
-                for idx, elem in enumerate(day_elements):
-                    try:
-                        if elem.is_visible():
-                            elem_class = elem.get_attribute('class') or ''
-                            
-                            # Skip if disabled
-                            if 'disabled' in elem_class.lower():
-                                logger.debug(f"Day {day} element {idx} is disabled, skipping")
-                                continue
-                            
-                            # Click it
-                            logger.info(f"Clicking day element {idx} with text '{day}'")
-                            elem.click()
-                            self.page.wait_for_timeout(500)
-                            logger.info(f"✓ Selected date: {month_name} {day}, {year}")
-                            return
-                            
-                    except Exception as e:
-                        logger.debug(f"Day element {idx} click failed: {e}")
-                        continue
-                
-                logger.warning(f"Could not click any day '{day}' elements")
-                
-            except Exception as e:
-                logger.error(f"Error finding day elements: {e}")
-            
-            # Fallback: Try clicking by text without cursor-pointer requirement
-            try:
-                logger.info("Trying fallback: click any element with matching day text")
-                general_selector = f"div:has-text('{day}')"
-                elements = self.page.locator(general_selector).all()
-                
-                for elem in elements:
-                    try:
-                        if elem.is_visible():
-                            text = elem.inner_text().strip()
-                            if text == day:
-                                elem.click()
-                                logger.info(f"✓ Clicked day using fallback method")
-                                self.page.wait_for_timeout(500)
-                                return
-                    except:
-                        continue
+            # Click the first visible, non-disabled one
+            for idx, elem in enumerate(day_elements):
+                try:
+                    # Check if element is visible and not disabled
+                    if elem.is_visible():
+                        elem_class = elem.get_attribute('class') or ''
                         
-            except Exception as e:
-                logger.error(f"Fallback method failed: {e}")
+                        # Skip if disabled
+                        if 'disabled' in elem_class.lower():
+                            logger.debug(f"Day {day} element {idx} is disabled, skipping")
+                            continue
+                        
+                        # This is the one - click it!
+                        logger.info(f"Clicking day element {idx} with text '{day}'")
+                        elem.click()
+                        self.page.wait_for_timeout(500)
+                        logger.info(f"✓ Selected date: {month_name} {day}, {year}")
+                        return
+                        
+                except Exception as e:
+                    logger.debug(f"Day element {idx} click failed: {e}")
+                    continue
             
-            logger.warning("Could not select date from calendar")
+            logger.warning(f"Could not click any day '{day}' elements")
             
         except Exception as e:
-            logger.error(f"Error in calendar selection: {e}")
+            logger.error(f"Error finding day elements: {e}")
+        
+        # Fallback: Try clicking by text without cursor-pointer requirement
+        try:
+            logger.info("Trying fallback: click any element with matching day text")
+            
+            # More general selector
+            general_selector = f"div:has-text('{day}')"
+            elements = self.page.locator(general_selector).all()
+            
+            # Find the one that's in the calendar and clickable
+            for elem in elements:
+                try:
+                    if elem.is_visible():
+                        text = elem.inner_text().strip()
+                        if text == day:
+                            elem.click()
+                            logger.info(f"✓ Clicked day using fallback method")
+                            self.page.wait_for_timeout(500)
+                            return
+                except:
+                    continue
+                    
+        except Exception as e:
+            logger.error(f"Fallback method failed: {e}")
+        
+        logger.warning("Could not select date from calendar")
+        
+    except Exception as e:
+        logger.error(f"Error in calendar selection: {e}")
     
+
+
+    # def uncheck_accommodation_option(self) -> None:
+    #     """Uncheck the accommodation booking checkbox"""
+    #     logger.info("Looking for accommodation checkbox")
+        
+    #     try:
+    #         self.page.wait_for_timeout(1000)
+            
+    #         # Strategy 1: Direct checkbox selectors
+    #         checkbox_selectors = [
+    #             "[data-test='accommodationCheckbox']",
+    #             "[data-test='BookingCheckbox']",
+    #             "input[type='checkbox'][name*='accommodation']",
+    #             "input[type='checkbox'][name*='booking']"
+    #         ]
+            
+    #         for selector in checkbox_selectors:
+    #             try:
+    #                 logger.info(f"Trying checkbox selector: {selector}")
+    #                 if self.is_visible(selector, timeout=2000):
+    #                     # Check if it's checked
+    #                     is_checked = self.page.is_checked(selector)
+    #                     logger.info(f"Checkbox state: {'checked' if is_checked else 'unchecked'}")
+                        
+    #                     if is_checked:
+    #                         self.page.uncheck(selector)
+    #                         logger.info(f"✓ Unchecked accommodation: {selector}")
+    #                     else:
+    #                         logger.info("Accommodation already unchecked")
+    #                     return
+    #             except Exception as e:
+    #                 logger.debug(f"Checkbox selector {selector} failed: {e}")
+    #                 continue
+            
+    #         # Strategy 2: Find by label text and click it
+    #         label_selectors = [
+    #             "label:has-text('accommodation')",
+    #             "label:has-text('Booking.com')",
+    #             "label:has-text('Kiwi.com')",
+    #             "div:has-text('accommodation with Booking.com')",
+    #             "div:has-text('accommodation with Kiwi.com')"
+    #         ]
+            
+    #         for selector in label_selectors:
+    #             try:
+    #                 logger.info(f"Trying label selector: {selector}")
+    #                 if self.is_visible(selector, timeout=2000):
+    #                     # Check if associated checkbox is checked
+    #                     label_element = self.page.locator(selector).first
+                        
+    #                     # Find checkbox near this label
+    #                     checkbox = label_element.locator("..").locator("input[type='checkbox']").first
+                        
+    #                     if checkbox.is_visible():
+    #                         is_checked = checkbox.is_checked()
+    #                         logger.info(f"Found checkbox via label, checked: {is_checked}")
+                            
+    #                         if is_checked:
+    #                             label_element.click()
+    #                             logger.info(f"✓ Clicked label to uncheck: {selector}")
+    #                         else:
+    #                             logger.info("Checkbox already unchecked (via label)")
+    #                         return
+    #             except Exception as e:
+    #                 logger.debug(f"Label selector {selector} failed: {e}")
+    #                 continue
+            
+    #         # Strategy 3: Find by data-test attribute containing "accommodation"
+    #         try:
+    #             accommodation_section = self.page.locator("[data-test*='ccommodation']").first
+    #             if accommodation_section.is_visible(timeout=2000):
+    #                 logger.info("Found accommodation section")
+                    
+    #                 # Look for checkbox within this section
+    #                 checkbox = accommodation_section.locator("input[type='checkbox']").first
+                    
+    #                 if checkbox.is_visible():
+    #                     is_checked = checkbox.is_checked()
+    #                     if is_checked:
+    #                         checkbox.uncheck()
+    #                         logger.info("✓ Unchecked accommodation via section")
+    #                     else:
+    #                         logger.info("Accommodation already unchecked (via section)")
+    #                     return
+    #         except Exception as e:
+    #             logger.debug(f"Section strategy failed: {e}")
+            
+    #         logger.warning("Could not find accommodation checkbox - it may not exist or already be unchecked")
+            
+    #     except Exception as e:
+    #         logger.warning(f"Error with accommodation checkbox: {e}")
+
     def uncheck_accommodation_option(self) -> None:
         """Uncheck the accommodation booking checkbox"""
         logger.info("Looking for accommodation checkbox")
@@ -351,48 +452,72 @@ class HomePage(BasePage):
         try:
             self.page.wait_for_timeout(1000)
             
-            # Strategy 2: Find by label text and click it
-            label_selectors = [
-                "label:has-text('accommodation')",
-                "label:has-text('Booking.com')",
-                "label:has-text('Kiwi.com')"
-            ]
+            # The checkbox is custom styled, we need to click the label/container
+            # Try multiple approaches
             
-            for selector in label_selectors:
-                try:
-                    logger.info(f"Trying label selector: {selector}")
-                    if self.is_visible(selector, timeout=2000):
-                        # Check if associated checkbox is checked
-                        label_element = self.page.locator(selector).first
-                        
-                        # Find checkbox near this label
-                        checkbox = label_element.locator("..").locator("input[type='checkbox']").first
-                        
-                        if checkbox.is_visible():
-                            is_checked = checkbox.is_checked()
-                            logger.info(f"Found checkbox via label, checked: {is_checked}")
-                            
-                            if is_checked:
-                                label_element.click()
-                                logger.info(f"✓ Clicked label to uncheck: {selector}")
-                            else:
-                                logger.info("Checkbox already unchecked (via label)")
-                            return
-                except Exception as e:
-                    logger.debug(f"Label selector {selector} failed: {e}")
-                    continue
+            # Strategy 1: Click the label that contains "accommodation"
+            try:
+                label_selector = "label:has-text('accommodation')"
+                logger.info(f"Trying to click label: {label_selector}")
+                
+                if self.is_visible(label_selector, timeout=3000):
+                    label = self.page.locator(label_selector).first
+                    
+                    # Check if checkbox is checked by looking at parent container
+                    parent = label.locator("..")
+                    parent_html = parent.get_attribute('outerHTML') or ''
+                    
+                    # If it looks checked (this is approximate)
+                    logger.info("Clicking accommodation label to toggle")
+                    label.click()
+                    self.page.wait_for_timeout(500)
+                    logger.info("✓ Clicked accommodation option")
+                    return
+            except Exception as e:
+                logger.debug(f"Label click failed: {e}")
             
-            logger.warning("Could not find accommodation checkbox - it may not exist or already be unchecked")
+            # Strategy 2: Find by data-test and click parent
+            try:
+                checkbox_selector = "[data-test='accommodationCheckbox']"
+                logger.info(f"Trying checkbox parent: {checkbox_selector}")
+                
+                if self.is_visible(checkbox_selector, timeout=3000):
+                    # Get the parent clickable element
+                    checkbox_elem = self.page.locator(checkbox_selector).first
+                    clickable_parent = checkbox_elem.locator("..")
+                    
+                    logger.info("Clicking accommodation checkbox parent")
+                    clickable_parent.click()
+                    self.page.wait_for_timeout(500)
+                    logger.info("✓ Clicked accommodation parent element")
+                    return
+            except Exception as e:
+                logger.debug(f"Parent click failed: {e}")
+            
+            # Strategy 3: Just ensure it's unchecked by checking visual state
+            try:
+                # Look for the container with accommodation text
+                container = self.page.locator("text=accommodation").first
+                if container.is_visible(timeout=2000):
+                    # Click it to toggle
+                    container.click()
+                    self.page.wait_for_timeout(500)
+                    logger.info("✓ Toggled accommodation option")
+                    return
+            except Exception as e:
+                logger.debug(f"Container toggle failed: {e}")
+            
+            logger.warning("Could not interact with accommodation checkbox - may not be needed")
             
         except Exception as e:
             logger.warning(f"Error with accommodation checkbox: {e}")
-    
+
     def click_search_button(self) -> None:
         """Click the search button to submit the search"""
         logger.info("Clicking search button")
         
         try:
-            self.page.wait_for_timeout(1000)
+            self.page.wait_for_timeout(3000)
             
             search_selectors = [
                 "[data-test='LandingSearchButton']",
