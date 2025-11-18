@@ -144,7 +144,7 @@ class HomePage(BasePage):
                         self.page.fill(selector, "")
                         self.page.wait_for_timeout(300)
                         
-                        # Type slowly (more reliable)
+                        # Type slowly
                         self.page.type(selector, airport_code, delay=100)
                         self.page.wait_for_timeout(1500)
                         
@@ -152,7 +152,11 @@ class HomePage(BasePage):
                         
                         # Press Enter to confirm
                         self.page.keyboard.press("Enter")
-                        self.page.wait_for_timeout(500)
+                        self.page.wait_for_timeout(1000)
+                        
+                        # Extra wait to ensure dropdown closes
+                        logger.info("Waiting for arrival dropdown to close...")
+                        self.page.wait_for_timeout(1500)
                         return
                         
                 except Exception as e:
@@ -220,7 +224,7 @@ class HomePage(BasePage):
     
     def set_departure_date(self, weeks_from_now: int = 1) -> None:
         """
-        Set departure date
+        Set departure date - WORKING VERSION based on debug findings
         
         Args:
             weeks_from_now: Number of weeks from current date
@@ -229,121 +233,121 @@ class HomePage(BasePage):
         
         try:
             target_date = datetime.now() + timedelta(weeks=weeks_from_now)
+            target_day_str = str(target_date.day)
             
-            # Wait for page to be ready
+            logger.info(f"Target date: {target_date.strftime('%Y-%m-%d')} (day: {target_day_str})")
+            
+            # Step 1: Close any open dropdowns
+            self.page.keyboard.press("Escape")
             self.page.wait_for_timeout(1000)
             
-            # Click on date field to open calendar
-            date_field_selectors = [
-                "[data-test='SearchDateInput']",
-                "[data-test='SearchFieldDateInput']",
-                "div[data-test*='Date']",
-                "button:has-text('Departure')"
-            ]
+            # Step 2: Click date field to open calendar
+            date_field_selector = "[data-test='SearchDateInput']"
+            logger.info(f"Clicking date field: {date_field_selector}")
+            
+            element = self.page.locator(date_field_selector).first
+            element.scroll_into_view_if_needed()
+            element.click()
+            logger.info("✓ Calendar opened")
+            
+            # Step 3: Wait for calendar to load
+            self.page.wait_for_timeout(3000)
+            
+            # Step 4: Select the date
+            self._select_date_from_calendar(target_day_str)
+            
+            # Step 5: Click "Set dates" button
+            self._click_set_dates_button()
+            
+            logger.info(f"✓ Departure date set successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to set departure date: {e}")
+            self.page.screenshot(path=f"reports/screenshots/date_error.png")
+            raise
+    
+    def _select_date_from_calendar(self, target_day_str: str) -> None:
+        """
+        Select exact single day - uses the WORKING selector from debug
+        
+        Args:
+            target_day_str: Day as string (e.g., '25')
+        """
+        logger.info(f"Selecting day: {target_day_str}")
+        
+        try:
+            # Wait for calendar to fully load
+            self.page.wait_for_timeout(3000)
+            
+            # Find div with specific classes and exact text match
+            logger.info(f"Looking for clickable div with text '{target_day_str}'")
+            
+            # Get all elements containing the day number
+            all_day_elements = self.page.locator(f"div:has-text('{target_day_str}')").all()
+            logger.info(f"Found {len(all_day_elements)} divs containing '{target_day_str}'")
             
             clicked = False
-            for selector in date_field_selectors:
+            for i, elem in enumerate(all_day_elements):
                 try:
-                    logger.info(f"Trying date field selector: {selector}")
-                    if self.is_visible(selector, timeout=2000):
-                        self.click(selector)
-                        logger.info(f"✓ Clicked date field: {selector}")
-                        self.page.wait_for_timeout(1500)
-                        clicked = True
-                        break
+                    # Get element details
+                    text = elem.inner_text().strip()
+                    classes = elem.get_attribute("class") or ""
+                    
+                    # Match EXACT text (not '125' or '250') and look for date cell classes
+                    if text == target_day_str:
+                        logger.info(f"Candidate {i}: text='{text}', classes='{classes[:80]}...'")
+                        
+                        # Check if it's a date cell
+                        if ("font-bold" in classes and "text-large" in classes) or \
+                        ("leading-normal" in classes and "text-ink" in classes):
+                            
+                            # Check it's not disabled
+                            if "disabled" not in classes.lower() and elem.is_visible():
+                                logger.info(f"  → Clicking candidate {i}...")
+                                elem.click()
+                                logger.info(f"✓ Successfully clicked day {target_day_str}!")
+                                clicked = True
+                                self.page.wait_for_timeout(1500)
+                                return
                 except Exception as e:
-                    logger.debug(f"Date field selector {selector} failed: {e}")
+                    logger.debug(f"Candidate {i} failed: {e}")
                     continue
             
             if not clicked:
-                logger.error("Could not open date picker")
-                return
-            
-            # Now select the date from calendar
-            self._select_date_from_calendar(target_date)
-            
+                logger.error(f"Could not click day {target_day_str}")
+                # Take screenshot for debugging
+                self.page.screenshot(path=f"reports/screenshots/day_{target_day_str}_not_found.png")
+                raise Exception(f"Date {target_day_str} not found or not clickable")
+                
         except Exception as e:
-            logger.error(f"Error setting departure date: {e}")
+            logger.error(f"Error selecting date: {e}")
+            raise
     
-    def _select_date_from_calendar(self, target_date: datetime) -> None:
-        """
-        Select specific date from calendar picker
+    def _click_set_dates_button(self) -> None:
+        """Click 'Set dates' button to confirm"""
+        logger.info("Clicking 'Set dates' button")
         
-        Args:
-            target_date: Target date to select
-        """
         try:
-            day = str(target_date.day)
-            month_name = target_date.strftime("%B")
-            year = target_date.year
+            self.page.wait_for_timeout(1000)
             
-            logger.info(f"Looking for date: {month_name} {day}, {year}")
+            set_dates_selector = "[data-test='SearchFormDoneButton']"
             
-            # Wait for calendar to appear
-            self.page.wait_for_timeout(1500)
-            
-            # Strategy: Find clickable date elements by text content
-            logger.info(f"Searching for day '{day}' in calendar...")
-            
-            try:
-                # Find elements with cursor-pointer class containing the day text
-                day_selector = f"div.cursor-pointer:has-text('{day}')"
-                day_elements = self.page.locator(day_selector).all()
-                logger.info(f"Found {len(day_elements)} clickable day elements")
+            element = self.page.locator(set_dates_selector).first
+            if element.is_visible(timeout=3000):
+                element.click()
+                logger.info("✓ Clicked 'Set dates' button")
+                self.page.wait_for_timeout(2000)
+            else:
+                logger.warning("Set dates button not visible, pressing Enter")
+                self.page.keyboard.press("Enter")
+                self.page.wait_for_timeout(1500)
                 
-                # Click the first visible, non-disabled one
-                for idx, elem in enumerate(day_elements):
-                    try:
-                        if elem.is_visible():
-                            elem_class = elem.get_attribute('class') or ''
-                            
-                            # Skip if disabled
-                            if 'disabled' in elem_class.lower():
-                                logger.debug(f"Day {day} element {idx} is disabled, skipping")
-                                continue
-                            
-                            # Click it
-                            logger.info(f"Clicking day element {idx} with text '{day}'")
-                            elem.click()
-                            self.page.wait_for_timeout(500)
-                            logger.info(f"✓ Selected date: {month_name} {day}, {year}")
-                            return
-                            
-                    except Exception as e:
-                        logger.debug(f"Day element {idx} click failed: {e}")
-                        continue
-                
-                logger.warning(f"Could not click any day '{day}' elements")
-                
-            except Exception as e:
-                logger.error(f"Error finding day elements: {e}")
-            
-            # Fallback: Try clicking by text without cursor-pointer requirement
-            try:
-                logger.info("Trying fallback: click any element with matching day text")
-                general_selector = f"div:has-text('{day}')"
-                elements = self.page.locator(general_selector).all()
-                
-                for elem in elements:
-                    try:
-                        if elem.is_visible():
-                            text = elem.inner_text().strip()
-                            if text == day:
-                                elem.click()
-                                logger.info(f"✓ Clicked day using fallback method")
-                                self.page.wait_for_timeout(500)
-                                return
-                    except:
-                        continue
-                        
-            except Exception as e:
-                logger.error(f"Fallback method failed: {e}")
-            
-            logger.warning("Could not select date from calendar")
-            
         except Exception as e:
-            logger.error(f"Error in calendar selection: {e}")
-    
+            logger.warning(f"Error clicking set dates: {e}")
+            self.page.keyboard.press("Enter")
+            self.page.wait_for_timeout(1500)
+
+
     def uncheck_accommodation_option(self) -> None:
         """Uncheck the accommodation booking checkbox"""
         logger.info("Looking for accommodation checkbox")
@@ -351,11 +355,37 @@ class HomePage(BasePage):
         try:
             self.page.wait_for_timeout(1000)
             
+            # Strategy 1: Direct checkbox selectors
+            checkbox_selectors = [
+                "[data-test='accommodationCheckbox']",
+                "[data-test='BookingCheckbox']",
+                "input[type='checkbox'][name*='accommodation']",
+                "input[type='checkbox'][name*='booking']"
+            ]
+            
+            for selector in checkbox_selectors:
+                try:
+                    logger.info(f"Trying checkbox selector: {selector}")
+                    if self.is_visible(selector, timeout=2000):
+                        # Check if it's checked
+                        is_checked = self.page.is_checked(selector)
+                        logger.info(f"Checkbox state: {'checked' if is_checked else 'unchecked'}")
+                        
+                        if is_checked:
+                            self.page.uncheck(selector)
+                            logger.info(f"✓ Unchecked accommodation: {selector}")
+                        else:
+                            logger.info("Accommodation already unchecked")
+                        return
+                except Exception as e:
+                    logger.debug(f"Checkbox selector {selector} failed: {e}")
+                    continue
+            
             # Strategy 2: Find by label text and click it
             label_selectors = [
                 "label:has-text('accommodation')",
                 "label:has-text('Booking.com')",
-                "label:has-text('Kiwi.com')"
+                "div:has-text('accommodation with Booking.com')"
             ]
             
             for selector in label_selectors:
@@ -381,6 +411,26 @@ class HomePage(BasePage):
                 except Exception as e:
                     logger.debug(f"Label selector {selector} failed: {e}")
                     continue
+            
+            # Strategy 3: Find by data-test attribute containing "accommodation"
+            try:
+                accommodation_section = self.page.locator("[data-test*='ccommodation']").first
+                if accommodation_section.is_visible(timeout=2000):
+                    logger.info("Found accommodation section")
+                    
+                    # Look for checkbox within this section
+                    checkbox = accommodation_section.locator("input[type='checkbox']").first
+                    
+                    if checkbox.is_visible():
+                        is_checked = checkbox.is_checked()
+                        if is_checked:
+                            checkbox.uncheck()
+                            logger.info("✓ Unchecked accommodation via section")
+                        else:
+                            logger.info("Accommodation already unchecked (via section)")
+                        return
+            except Exception as e:
+                logger.debug(f"Section strategy failed: {e}")
             
             logger.warning("Could not find accommodation checkbox - it may not exist or already be unchecked")
             
